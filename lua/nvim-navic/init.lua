@@ -179,62 +179,62 @@ end
 
 -- stylua: ignore
 local lsp_str_to_num = {
-	File          = 1,
-	Module        = 2,
-	Namespace     = 3,
-	Package       = 4,
-	Class         = 5,
-	Method        = 6,
-	Property      = 7,
-	Field         = 8,
-	Constructor   = 9,
-	Enum          = 10,
-	Interface     = 11,
-	Function      = 12,
-	Variable      = 13,
-	Constant      = 14,
-	String        = 15,
-	Number        = 16,
-	Boolean       = 17,
-	Array         = 18,
-	Object        = 19,
-	Key           = 20,
-	Null          = 21,
-	EnumMember    = 22,
-	Struct        = 23,
-	Event         = 24,
-	Operator      = 25,
-	TypeParameter = 26,
+  File          = 1,
+  Module        = 2,
+  Namespace     = 3,
+  Package       = 4,
+  Class         = 5,
+  Method        = 6,
+  Property      = 7,
+  Field         = 8,
+  Constructor   = 9,
+  Enum          = 10,
+  Interface     = 11,
+  Function      = 12,
+  Variable      = 13,
+  Constant      = 14,
+  String        = 15,
+  Number        = 16,
+  Boolean       = 17,
+  Array         = 18,
+  Object        = 19,
+  Key           = 20,
+  Null          = 21,
+  EnumMember    = 22,
+  Struct        = 23,
+  Event         = 24,
+  Operator      = 25,
+  TypeParameter = 26,
 }
 
 -- stylua: ignore
 local lsp_num_to_str = {
-	[1]  = "File",
-	[2]  = "Module",
-	[3]  = "Namespace",
-	[4]  = "Package",
-	[5]  = "Class",
-	[6]  = "Method",
-	[7]  = "Property",
-	[8]  = "Field",
-	[9]  = "Constructor",
-	[10] = "Enum",
-	[11] = "Interface",
-	[12] = "Function",
-	[13] = "Variable",
-	[14] = "Constant",
-	[15] = "String",
-	[16] = "Number",
-	[17] = "Boolean",
-	[18] = "Array",
-	[19] = "Object",
-	[20] = "Key",
-	[21] = "Null",
-	[22] = "EnumMember",
-	[23] = "Struct",
-	[24] = "Event",
-	[25] = "Operator",
-	[26] = "TypeParameter",
+  [1]  = "File",
+  [2]  = "Module",
+  [3]  = "Namespace",
+  [4]  = "Package",
+  [5]  = "Class",
+  [6]  = "Method",
+  [7]  = "Property",
+  [8]  = "Field",
+  [9]  = "Constructor",
+  [10] = "Enum",
+  [11] = "Interface",
+  [12] = "Function",
+  [13] = "Variable",
+  [14] = "Constant",
+  [15] = "String",
+  [16] = "Number",
+  [17] = "Boolean",
+  [18] = "Array",
+  [19] = "Object",
+  [20] = "Key",
+  [21] = "Null",
+  [22] = "EnumMember",
+  [23] = "Struct",
+  [24] = "Event",
+  [25] = "Operator",
+  [26] = "TypeParameter",
 }
 
 local config = {
@@ -307,6 +307,23 @@ function M.setup(opts)
 	end
 end
 
+local function get_relative_line_num(ctx_node_line_num)
+	local cursor_line_num = vim.fn.line(".")
+	local num_folded_lines = 0
+	-- Find all folds between the context node and the cursor
+	local current_line = ctx_node_line_num
+	while current_line < cursor_line_num do
+		local fold_end = vim.fn.foldclosedend(current_line)
+		if fold_end == -1 then
+			current_line = current_line + 1
+		else
+			num_folded_lines = num_folded_lines + fold_end - current_line
+			current_line = fold_end + 1
+		end
+	end
+	return cursor_line_num - ctx_node_line_num - num_folded_lines
+end
+
 -- returns table of context or nil
 function M.get_data()
 	local context_data = navic_context_data[vim.api.nvim_get_current_buf()]
@@ -317,17 +334,21 @@ function M.get_data()
 
 	local ret = {}
 
+	-- local relative_line_nr = vim.bo.
 	for _, v in ipairs(context_data) do
+		local line_num = v.scope["start"].line
+		if vim.o.relativenumber then
+			line_num = get_relative_line_num(line_num)
+		end
+
 		table.insert(ret, {
 			kind = v.kind,
 			type = lsp_num_to_str[v.kind],
 			name = v.name,
 			icon = config.icons[v.kind],
-			start_line_nr = v.scope["start"].line,
-			end_line_nr = v.scope["end"].line,
+			line_nr = line_num,
 		})
 	end
-	dump(ret)
 	return ret
 end
 
@@ -373,7 +394,7 @@ function M.get_location(opts)
 
 	local location = {}
 
-	local function add_hl(kind, name, start_line_nr)
+	local function add_hl(kind, name, line_nr)
 		return "%#NavicIcons"
 			.. lsp_num_to_str[kind]
 			.. "#"
@@ -381,16 +402,16 @@ function M.get_location(opts)
 			.. "%*%#NavicText#"
 			.. name
 			.. "("
-			.. start_line_nr
+			.. line_nr
 			.. ")"
 			.. "%*"
 	end
 
 	for _, v in ipairs(data) do
 		if local_config.highlight then
-			table.insert(location, add_hl(v.kind, v.name, v.start_line_nr))
+			table.insert(location, add_hl(v.kind, v.name, v.line_nr))
 		else
-			table.insert(location, v.icon .. v.name .. "(" .. v.start_line_nr .. ")")
+			table.insert(location, v.icon .. v.name .. "(" .. v.line_nr .. ")")
 		end
 	end
 
