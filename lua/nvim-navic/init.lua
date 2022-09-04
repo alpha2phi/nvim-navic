@@ -128,11 +128,15 @@ local function update_context(for_buf)
 
 	local curr = navic_symbols[for_buf]
 
-	if curr == nil then return end
+	if curr == nil then
+		return
+	end
 
 	-- Find larger context that remained same
 	for _, context in ipairs(old_context_data) do
-		if curr == nil then break end
+		if curr == nil then
+			break
+		end
 		if
 			in_range(cursor_pos, context.scope) == 0
 			and curr[context.index] ~= nil
@@ -269,7 +273,9 @@ local config = {
 }
 
 setmetatable(config.icons, {
-	__index = function() return "? " end
+	__index = function()
+		return "? "
+	end,
 })
 
 -- @Public Methods
@@ -317,9 +323,11 @@ function M.get_data()
 			type = lsp_num_to_str[v.kind],
 			name = v.name,
 			icon = config.icons[v.kind],
+			start_line_nr = v.scope["start"].line,
+			end_line_nr = v.scope["end"].line,
 		})
 	end
-
+	dump(ret)
 	return ret
 end
 
@@ -365,21 +373,24 @@ function M.get_location(opts)
 
 	local location = {}
 
-	local function add_hl(kind, name)
+	local function add_hl(kind, name, start_line_nr)
 		return "%#NavicIcons"
 			.. lsp_num_to_str[kind]
 			.. "#"
 			.. local_config.icons[kind]
 			.. "%*%#NavicText#"
 			.. name
+			.. "("
+			.. start_line_nr
+			.. ")"
 			.. "%*"
 	end
 
 	for _, v in ipairs(data) do
 		if local_config.highlight then
-			table.insert(location, add_hl(v.kind, v.name))
+			table.insert(location, add_hl(v.kind, v.name, v.start_line_nr))
 		else
-			table.insert(location, v.icon .. v.name)
+			table.insert(location, v.icon .. v.name .. "(" .. v.start_line_nr .. ")")
 		end
 	end
 
